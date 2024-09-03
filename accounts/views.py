@@ -20,9 +20,10 @@ class RegistrationAPI(APIView):
                 serializer = Userserializer(user)
                 return Response(serializer.data, status=status.HTTP_200_OK)
             except User.DoesNotExist:
-                return Response({'msg': 'User not found'}, status=status.HTTP_400_BAD_REQUEST)
-        user = User.objects.all()
-        serializer = Userserializer(user, many=True)
+                return Response({'msg': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        users = User.objects.all()
+        serializer = Userserializer(users, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @csrf_exempt
@@ -30,70 +31,66 @@ class RegistrationAPI(APIView):
         data = request.data
         serializer = Userserializer(data=data)
         if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            user = User.request.get(username=data['username'])
-            token = Token.objects.get(user=user)
+            user = serializer.save()
+            token = Token.objects.get(user=user)  # Create token after saving the user
             return Response(
                 {
-                    'message': 'user create successfully',
-                    'user': request.data,
+                    'message': 'User created successfully',
+                    'user': serializer.data,
                     'token': token.key
-                }, status=status.HTTP_200_OK
+                }, status=status.HTTP_201_CREATED
             )
         else:
-            res_error = serializer.errors
-            return Response(res_error, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @csrf_exempt
     def put(self, request, id=None):
         if id:
-            data = request.data
-            user = User.request.get(id=id)
-            serializer = Userserializer(user, data=data)
+            try:
+                user = User.objects.get(id=id)
+            except User.DoesNotExist:
+                return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+            serializer = Userserializer(user, data=request.data)
             if serializer.is_valid(raise_exception=True):
                 serializer.save()
-                msg = {'msg': 'Data complete update successfully'}
-                return Response(msg, status=status.HTTP_200_OK)
+                return Response({'msg': 'Data completely updated successfully'}, status=status.HTTP_200_OK)
             else:
-                msg = serializer.errors
-                return Response(msg, status=status.HTTP_501_NOT_IMPLEMENTED)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         else:
-            msg = {'error': 'Id not found'}
-            return Response(msg, status=status.HTTP_501_NOT_IMPLEMENTED)
+            return Response({'error': 'ID not provided'}, status=status.HTTP_400_BAD_REQUEST)
 
     @csrf_exempt
-    def prefetch(self, request, id=None):
+    def patch(self, request, id=None):
         if id:
-            data = request.data
-            user = User.request.get(id=id)
-            serializer = Userserializer(user, data=data, partial=True)
+            try:
+                user = User.objects.get(id=id)
+            except User.DoesNotExist:
+                return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            serializer = Userserializer(user, data=request.data, partial=True)
             if serializer.is_valid(raise_exception=True):
                 serializer.save()
-                msg = {'msg': 'Data partial update successfully'}
-                return Response(msg, status=status.HTTP_200_OK)
+                return Response({'msg': 'Data partially updated successfully'}, status=status.HTTP_200_OK)
             else:
-                msg = serializer.errors
-                return Response(msg, status=status.HTTP_501_NOT_IMPLEMENTED)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         else:
-            msg = {'error': 'Id not found'}
-            return Response(msg, status=status.HTTP_501_NOT_IMPLEMENTED)
+            return Response({'error': 'ID not provided'}, status=status.HTTP_400_BAD_REQUEST)
 
     @csrf_exempt
     def delete(self, request, id=None):
         if id:
-            user = User.request.get(id=id)
-            if user:
-                user.delete()
-                msg = {'msg': 'Data Deleted successfully'}
-                return Response(msg, status=status.HTTP_200_OK)
-            else:
-                msg = {'error': 'User is not found'}
-                return Response(msg, status=status.HTTP_404_NOT_FOUND)
+            try:
+                user = User.objects.get(id=id)
+            except User.DoesNotExist:
+                return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            user.delete()
+            return Response({'msg': 'User deleted successfully'}, status=status.HTTP_200_OK)
         else:
-            msg = {'error': 'Id not found'}
-            return Response(msg, status=status.HTTP_501_NOT_IMPLEMENTED)
+            return Response({'error': 'ID not provided'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class LoginView(APIView):
